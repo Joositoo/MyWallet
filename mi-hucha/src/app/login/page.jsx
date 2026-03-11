@@ -3,12 +3,15 @@ import { useState } from 'react';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
+import { useRouter } from 'next/navigation';
+import { signIn } from "next-auth/react";
 
-export default function App() {
+export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [correctEmail, setCorrectEmail] = useState(true);
     const [existsUser, setExistsUser] = useState(true);
+    const router = useRouter();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -20,30 +23,18 @@ export default function App() {
             return;
         }
 
-        try {
-            const response = await fetch("api/usuarios/login", {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ email, password })
-            });
+        const result = await signIn("credentials", {
+            email,
+            password,
+            redirect: false
+        })
 
-            const data = await response.json();
-            if (!response.ok){
-                console.error('Login failed:', data);
-                setExistsUser(false);
-                return;
-            }
-
-            console.log("Usuario logueado:", data.usuario);
-            return Response.json({
-                mensaje: "Login correcto",
-                usuario: { id: data.usuario.id, nombre: data.usuario.nombre, email: data.usuario.email }
-            }, { status: 200 });
-        }
-        catch (error){
-            console.log("Error de red:", error);
+        if (result.error){
             setExistsUser(false);
+            return;
         }
+
+        router.push("/dashboard");
     };
 
     return (

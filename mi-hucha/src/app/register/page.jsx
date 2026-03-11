@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
+import { useRouter } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 
 export default function Register() {
     const [nombre, setNombre] = useState('');
@@ -12,6 +14,7 @@ export default function Register() {
     const [correctEmail, setCorrectEmail] = useState(true);
     const [existsUser, setExistsUser] = useState(false);
     const regex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]{3,}$/;
+    const router = useRouter();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -19,37 +22,46 @@ export default function Register() {
         setCorrectEmail(true);
         setExistsUser(false);
 
-        if (!regex.test(nombre)){
+        if (!regex.test(nombre)) {
             setCorrectName(false);
             return;
         }
 
-        if (!email.endsWith('@gmail.com')){
+        if (!email.endsWith('@gmail.com')) {
             setCorrectEmail(false);
             return;
         }
 
         try {
-            const response = await fetch("api/usuarios/signup", {
+            const response = await fetch("/api/usuarios/signup", {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ nombre, email, password })
             });
 
             const data = await response.json();
-            if (!response.ok){
+            if (!response.ok) {
                 console.error('Signup failed:', data);
                 setExistsUser(true);
                 return;
             }
 
             console.log("Usuario registrado:", data);
-            return Response.json({
-                mensaje: "Registro correcto",
-                usuario: { id: data.id, nombre: data.nombre, email: data.email }
-            }, { status: 201 });
+
+            const result = await signIn("credentials", {
+                email,
+                password,
+                redirect: false,
+            });
+
+            if (result.error) {
+                setExistsUser(true);
+                return;
+            }
+
+            router.push("/dashboard");
         }
-        catch (error){
+        catch (error) {
             setExistsUser(true);
         }
 
