@@ -1,5 +1,824 @@
+'use client';
+import { useState } from 'react';
+import { useRouter } from "next/navigation";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Button } from '../components/ui/button' //'../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../components/ui/dialog';
+import { LogOut, Plus, TrendingUp, TrendingDown, Wallet, Pencil, Trash2 } from 'lucide-react';
+import {
+    LineChart,
+    Line,
+    AreaChart,
+    Area,
+    BarChart,
+    Bar,
+    PieChart,
+    Pie,
+    Cell,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    Legend,
+    ResponsiveContainer,
+} from 'recharts';
+
+// Datos de ejemplo para las transacciones
+const transaccionesEjemplo = [
+    { id: 1, tipo: 'ingreso', monto: 3000, categoria: 'Salario', fecha: '2026-03-01', descripcion: 'Salario mensual' },
+    { id: 2, tipo: 'gasto', monto: 800, categoria: 'Vivienda', fecha: '2026-03-02', descripcion: 'Renta del mes' },
+    { id: 3, tipo: 'gasto', monto: 150, categoria: 'Alimentación', fecha: '2026-03-03', descripcion: 'Supermercado' },
+    { id: 4, tipo: 'gasto', monto: 200, categoria: 'Transporte', fecha: '2026-03-04', descripcion: 'Gasolina' },
+    { id: 5, tipo: 'ingreso', monto: 500, categoria: 'Freelance', fecha: '2026-03-05', descripcion: 'Proyecto web' },
+    { id: 6, tipo: 'gasto', monto: 100, categoria: 'Entretenimiento', fecha: '2026-03-06', descripcion: 'Cine y cena' },
+    { id: 7, tipo: 'gasto', monto: 80, categoria: 'Servicios', fecha: '2026-03-07', descripcion: 'Internet' },
+    { id: 8, tipo: 'gasto', monto: 120, categoria: 'Alimentación', fecha: '2026-03-08', descripcion: 'Restaurantes' },
+    { id: 9, tipo: 'gasto', monto: 60, categoria: 'Salud', fecha: '2026-03-09', descripcion: 'Farmacia' },
+    { id: 10, tipo: 'ingreso', monto: 200, categoria: 'Inversiones', fecha: '2026-03-10', descripcion: 'Dividendos' },
+];
+
+// Datos mensuales para gráficos de tendencia
+const datosMensuales = [
+    { mes: 'Ene', ingresos: 3200, gastos: 2100 },
+    { mes: 'Feb', ingresos: 3500, gastos: 2400 },
+    { mes: 'Mar', ingresos: 3700, gastos: 1510 },
+];
+
+// Datos por categoría para gráfico de pastel
+const gastosPorCategoria = [
+    { nombre: 'Vivienda', valor: 800 },
+    { nombre: 'Alimentación', valor: 270 },
+    { nombre: 'Transporte', valor: 200 },
+    { nombre: 'Entretenimiento', valor: 100 },
+    { nombre: 'Servicios', valor: 80 },
+    { nombre: 'Salud', valor: 60 },
+];
+
+const COLORES = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d'];
+
 export default function Dashboard() {
+    const navigate = useRouter();
+    const [transacciones, setTransacciones] = useState(transaccionesEjemplo);
+    const [nuevaTransaccion, setNuevaTransaccion] = useState({
+        tipo: 'gasto',
+        monto: '',
+        categoria: '',
+        descripcion: '',
+        fecha: new Date().toISOString().split('T')[0],
+    });
+
+    // Estado para categorías
+    const [categorias, setCategorias] = useState([
+        { id: 1, nombre: 'Salario', tipo: 'ingreso' },
+        { id: 2, nombre: 'Freelance', tipo: 'ingreso' },
+        { id: 3, nombre: 'Inversiones', tipo: 'ingreso' },
+        { id: 4, nombre: 'Vivienda', tipo: 'gasto' },
+        { id: 5, nombre: 'Alimentación', tipo: 'gasto' },
+        { id: 6, nombre: 'Transporte', tipo: 'gasto' },
+        { id: 7, nombre: 'Entretenimiento', tipo: 'gasto' },
+        { id: 8, nombre: 'Servicios', tipo: 'gasto' },
+        { id: 9, nombre: 'Salud', tipo: 'gasto' },
+    ]);
+    const [nuevaCategoria, setNuevaCategoria] = useState({
+        nombre: '',
+        tipo: 'gasto',
+    });
+    const [categoriaEditando, setCategoriaEditando] = useState(null);
+    const [dialogCategoriaAbierto, setDialogCategoriaAbierto] = useState(false);
+
+    // Estado para perfil de usuario
+    const [usuario, setUsuario] = useState({
+        nombre: 'Usuario Demo',
+        password: 'demo123',
+    });
+    const [editandoPerfil, setEditandoPerfil] = useState({
+        nombre: '',
+        passwordActual: '',
+        passwordNueva: '',
+        passwordRepetir: '',
+    });
+    const [errorPassword, setErrorPassword] = useState('');
+
+    // Estado para editar transacciones
+    const [transaccionEditando, setTransaccionEditando] = useState(null);
+    const [dialogTransaccionAbierto, setDialogTransaccionAbierto] = useState(false);
+
+    // Calcular totales
+    const totalIngresos = transacciones
+        .filter(t => t.tipo === 'ingreso')
+        .reduce((acc, t) => acc + t.monto, 0);
+
+    const totalGastos = transacciones
+        .filter(t => t.tipo === 'gasto')
+        .reduce((acc, t) => acc + t.monto, 0);
+
+    const balance = totalIngresos - totalGastos;
+
+    const handleLogout = () => {
+        // Aquí iría la lógica de cerrar sesión
+        navigate('/');
+    };
+
+    const agregarTransaccion = () => {
+        if (nuevaTransaccion.monto && nuevaTransaccion.categoria) {
+            const nuevaT = {
+                id: transacciones.length + 1,
+                tipo: nuevaTransaccion.tipo,
+                monto: parseFloat(nuevaTransaccion.monto),
+                categoria: nuevaTransaccion.categoria,
+                fecha: nuevaTransaccion.fecha,
+                descripcion: nuevaTransaccion.descripcion,
+            };
+            setTransacciones([...transacciones, nuevaT]);
+            setNuevaTransaccion({
+                tipo: 'gasto',
+                monto: '',
+                categoria: '',
+                descripcion: '',
+                fecha: new Date().toISOString().split('T')[0],
+            });
+        }
+    };
+
+    // Funciones para categorías
+    const agregarCategoria = () => {
+        if (nuevaCategoria.nombre.trim()) {
+            const nuevaCat = {
+                id: categorias.length + 1,
+                nombre: nuevaCategoria.nombre.trim(),
+                tipo: nuevaCategoria.tipo,
+            };
+            setCategorias([...categorias, nuevaCat]);
+            setNuevaCategoria({ nombre: '', tipo: 'gasto' });
+        }
+    };
+
+    const abrirEditarCategoria = (categoria) => {
+        setCategoriaEditando({ ...categoria });
+        setDialogCategoriaAbierto(true);
+    };
+
+    const guardarCategoriaEditada = () => {
+        if (categoriaEditando && categoriaEditando.nombre.trim()) {
+            setCategorias(categorias.map(cat =>
+                cat.id === categoriaEditando.id ? categoriaEditando : cat
+            ));
+            setDialogCategoriaAbierto(false);
+            setCategoriaEditando(null);
+        }
+    };
+
+    const eliminarCategoria = (id) => {
+        setCategorias(categorias.filter(cat => cat.id !== id));
+    };
+
+    // Funciones para perfil
+    const actualizarNombre = () => {
+        if (editandoPerfil.nombre.trim()) {
+            setUsuario({ ...usuario, nombre: editandoPerfil.nombre.trim() });
+            setEditandoPerfil({ ...editandoPerfil, nombre: '' });
+        }
+    };
+
+    const cambiarPassword = () => {
+        setErrorPassword('');
+
+        if (!editandoPerfil.passwordActual || !editandoPerfil.passwordNueva || !editandoPerfil.passwordRepetir) {
+            setErrorPassword('Todos los campos de contraseña son obligatorios');
+            return;
+        }
+
+        if (editandoPerfil.passwordActual !== usuario.password) {
+            setErrorPassword('La contraseña actual es incorrecta');
+            return;
+        }
+
+        if (editandoPerfil.passwordNueva !== editandoPerfil.passwordRepetir) {
+            setErrorPassword('Las contraseñas nuevas no coinciden');
+            return;
+        }
+
+        if (editandoPerfil.passwordNueva.length < 6) {
+            setErrorPassword('La contraseña debe tener al menos 6 caracteres');
+            return;
+        }
+
+        setUsuario({ ...usuario, password: editandoPerfil.passwordNueva });
+        setEditandoPerfil({
+            ...editandoPerfil,
+            passwordActual: '',
+            passwordNueva: '',
+            passwordRepetir: '',
+        });
+        setErrorPassword('');
+        alert('Contraseña cambiada exitosamente');
+    };
+
+    // Funciones para transacciones
+    const abrirEditarTransaccion = (transaccion) => {
+        setTransaccionEditando({ ...transaccion, monto: transaccion.monto.toString() });
+        setDialogTransaccionAbierto(true);
+    };
+
+    const guardarTransaccionEditada = () => {
+        if (transaccionEditando && transaccionEditando.monto && transaccionEditando.categoria) {
+            setTransacciones(transacciones.map(t =>
+                t.id === transaccionEditando.id
+                    ? { ...transaccionEditando, monto: parseFloat(transaccionEditando.monto) }
+                    : t
+            ));
+            setDialogTransaccionAbierto(false);
+            setTransaccionEditando(null);
+        }
+    };
+
+    const eliminarTransaccion = (id) => {
+        setTransacciones(transacciones.filter(t => t.id !== id));
+    };
+
     return (
-        <p>Dashboard</p>
-    )
+        <div className="min-h-screen w-full bg-gray-100">
+            {/* Header */}
+            <header className="bg-white shadow-sm">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+                    <h1 className="text-2xl font-bold text-gray-900">Dashboard Financiero</h1>
+                    <Button
+                        variant="ghost"
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 hover:bg-gray-200 hover:cursor-pointer"
+                    >
+                        <LogOut className="h-4 w-4" />
+                        Cerrar sesión
+                    </Button>
+                </div>
+            </header>
+
+            {/* Main Content */}
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <Tabs defaultValue="resumen" className="w-full">
+                    <TabsList className="grid w-full grid-cols-4 mb-8 bg-gray-200">
+                        <TabsTrigger value="resumen">Resumen</TabsTrigger>
+                        <TabsTrigger value="perfil">Perfil</TabsTrigger>
+                        <TabsTrigger value="transacciones">Gastos e Ingresos</TabsTrigger>
+                        <TabsTrigger value="categorias">Categorías</TabsTrigger>
+                    </TabsList>
+
+                    {/* Resumen Tab */}
+                    <TabsContent value="resumen" className="space-y-6">
+                        {/* Cards de resumen */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm text-gray-600 mb-1">Total Ingresos</p>
+                                        <p className="text-3xl font-bold text-green-600">${totalIngresos.toFixed(2)}</p>
+                                    </div>
+                                    <div className="bg-green-100 p-3 rounded-full">
+                                        <TrendingUp className="h-6 w-6 text-green-600" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-lg shadow p-6 border-l-4 border-red-500">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm text-gray-600 mb-1">Total Gastos</p>
+                                        <p className="text-3xl font-bold text-red-600">${totalGastos.toFixed(2)}</p>
+                                    </div>
+                                    <div className="bg-red-100 p-3 rounded-full">
+                                        <TrendingDown className="h-6 w-6 text-red-600" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm text-gray-600 mb-1">Balance</p>
+                                        <p className={`text-3xl font-bold ${balance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                                            ${balance.toFixed(2)}
+                                        </p>
+                                    </div>
+                                    <div className="bg-blue-100 p-3 rounded-full">
+                                        <Wallet className="h-6 w-6 text-blue-600" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Gráficos */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Gráfico de Tendencia */}
+                            <div className="bg-white rounded-lg shadow p-6">
+                                <h3 className="text-lg font-bold text-gray-900 mb-4">Tendencia Mensual</h3>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <LineChart data={datosMensuales}>
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis dataKey="mes" />
+                                        <YAxis />
+                                        <Tooltip />
+                                        <Legend />
+                                        <Line
+                                            type="monotone"
+                                            dataKey="ingresos"
+                                            stroke="#10b981"
+                                            strokeWidth={3}
+                                            name="Ingresos"
+                                        />
+                                        <Line
+                                            type="monotone"
+                                            dataKey="gastos"
+                                            stroke="#ef4444"
+                                            strokeWidth={3}
+                                            name="Gastos"
+                                        />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+
+                            {/* Gráfico de Distribución por Categoría */}
+                            <div className="bg-white rounded-lg shadow p-6">
+                                <h3 className="text-lg font-bold text-gray-900 mb-4">Gastos por Categoría</h3>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <PieChart>
+                                        <Pie
+                                            data={gastosPorCategoria}
+                                            cx="50%"
+                                            cy="50%"
+                                            labelLine={false}
+                                            label={({ nombre, percent }) => `${nombre} ${(percent * 100).toFixed(0)}%`}
+                                            outerRadius={80}
+                                            fill="#8884d8"
+                                            dataKey="valor"
+                                        >
+                                            {gastosPorCategoria.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORES[index % COLORES.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* Transacciones Recientes */}
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-bold text-gray-900 mb-4">Transacciones Recientes</h3>
+                            <div className="space-y-2">
+                                {transacciones.slice(-5).reverse().map((transaccion) => (
+                                    <div
+                                        key={transaccion.id}
+                                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                                    >
+                                        <div className="flex-1">
+                                            <p className="font-medium text-gray-900">{transaccion.descripcion}</p>
+                                            <p className="text-sm text-gray-500">{transaccion.categoria} • {transaccion.fecha}</p>
+                                        </div>
+                                        <div className={`font-bold ${transaccion.tipo === 'ingreso' ? 'text-green-600' : 'text-red-600'}`}>
+                                            {transaccion.tipo === 'ingreso' ? '+' : '-'}${transaccion.monto.toFixed(2)}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </TabsContent>
+
+                    {/* Perfil Tab */}
+                    <TabsContent value="perfil" className="space-y-6">
+                        {/* Información del Usuario */}
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h2 className="text-xl font-bold text-gray-900 mb-4">Mi Perfil</h2>
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                                    <div className="bg-blue-100 p-3 rounded-full">
+                                        <span className="text-2xl">👤</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-gray-600">Nombre de usuario</p>
+                                        <p className="text-lg font-semibold text-gray-900">{usuario.nombre}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Modificar Nombre */}
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-bold text-gray-900 mb-4">Cambiar Nombre</h3>
+                            <div className="flex gap-4 items-end">
+                                <div className="flex-1 space-y-2">
+                                    <Label htmlFor="nuevoNombre">Nuevo nombre</Label>
+                                    <Input
+                                        id="nuevoNombre"
+                                        type="text"
+                                        placeholder="Ingrese su nuevo nombre"
+                                        value={editandoPerfil.nombre}
+                                        onChange={(e) => setEditandoPerfil({ ...editandoPerfil, nombre: e.target.value })}
+                                    />
+                                </div>
+                                <Button onClick={actualizarNombre}>
+                                    Actualizar Nombre
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Cambiar Contraseña */}
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-bold text-gray-900 mb-4">Cambiar Contraseña</h3>
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="passwordActual">Contraseña actual</Label>
+                                    <Input
+                                        id="passwordActual"
+                                        type="password"
+                                        placeholder="Ingrese su contraseña actual"
+                                        value={editandoPerfil.passwordActual}
+                                        onChange={(e) => setEditandoPerfil({ ...editandoPerfil, passwordActual: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="passwordNueva">Nueva contraseña</Label>
+                                    <Input
+                                        id="passwordNueva"
+                                        type="password"
+                                        placeholder="Ingrese su nueva contraseña"
+                                        value={editandoPerfil.passwordNueva}
+                                        onChange={(e) => setEditandoPerfil({ ...editandoPerfil, passwordNueva: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="passwordRepetir">Repetir nueva contraseña</Label>
+                                    <Input
+                                        id="passwordRepetir"
+                                        type="password"
+                                        placeholder="Repita su nueva contraseña"
+                                        value={editandoPerfil.passwordRepetir}
+                                        onChange={(e) => setEditandoPerfil({ ...editandoPerfil, passwordRepetir: e.target.value })}
+                                    />
+                                </div>
+                                {errorPassword && (
+                                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                                        <p className="text-sm text-red-600">{errorPassword}</p>
+                                    </div>
+                                )}
+                                <Button onClick={cambiarPassword} className="w-full md:w-auto">
+                                    Cambiar Contraseña
+                                </Button>
+                            </div>
+                        </div>
+                    </TabsContent>
+
+                    {/* Gastos e Ingresos Tab */}
+                    <TabsContent value="transacciones" className="space-y-6">
+                        {/* Gráfico de Barras */}
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h2 className="text-xl font-bold text-gray-900 mb-4">Comparación Ingresos vs Gastos</h2>
+                            <ResponsiveContainer width="100%" height={300}>
+                                <BarChart data={datosMensuales}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="mes" />
+                                    <YAxis />
+                                    <Tooltip />
+                                    <Legend />
+                                    <Bar dataKey="ingresos" fill="#10b981" name="Ingresos" />
+                                    <Bar dataKey="gastos" fill="#ef4444" name="Gastos" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+
+                        {/* Formulario para agregar transacciones */}
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-bold text-gray-900 mb-4">Agregar Transacción</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="tipo">Tipo</Label>
+                                    <select
+                                        id="tipo"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                        value={nuevaTransaccion.tipo}
+                                        onChange={(e) => setNuevaTransaccion({ ...nuevaTransaccion, tipo: e.target.value })}
+                                    >
+                                        <option value="gasto">Gasto</option>
+                                        <option value="ingreso">Ingreso</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="monto">Monto</Label>
+                                    <Input
+                                        id="monto"
+                                        type="number"
+                                        placeholder="0.00"
+                                        value={nuevaTransaccion.monto}
+                                        onChange={(e) => setNuevaTransaccion({ ...nuevaTransaccion, monto: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="categoria">Categoría</Label>
+                                    <Input
+                                        id="categoria"
+                                        type="text"
+                                        placeholder="Ej: Alimentación"
+                                        value={nuevaTransaccion.categoria}
+                                        onChange={(e) => setNuevaTransaccion({ ...nuevaTransaccion, categoria: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="fecha">Fecha</Label>
+                                    <Input
+                                        id="fecha"
+                                        type="date"
+                                        value={nuevaTransaccion.fecha}
+                                        onChange={(e) => setNuevaTransaccion({ ...nuevaTransaccion, fecha: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <Label htmlFor="descripcion">Descripción</Label>
+                                    <Input
+                                        id="descripcion"
+                                        type="text"
+                                        placeholder="Descripción de la transacción"
+                                        value={nuevaTransaccion.descripcion}
+                                        onChange={(e) => setNuevaTransaccion({ ...nuevaTransaccion, descripcion: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                            <Button onClick={agregarTransaccion} className="w-full md:w-auto">
+                                <Plus className="h-4 w-4 mr-2" />
+                                Agregar Transacción
+                            </Button>
+                        </div>
+
+                        {/* Lista de todas las transacciones */}
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-bold text-gray-900 mb-4">Todas las Transacciones</h3>
+                            <div className="space-y-2 max-h-96 overflow-y-auto">
+                                {transacciones.map((transaccion) => (
+                                    <div
+                                        key={transaccion.id}
+                                        className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                                    >
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-2 h-2 rounded-full ${transaccion.tipo === 'ingreso' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                                                <div>
+                                                    <p className="font-medium text-gray-900">{transaccion.descripcion}</p>
+                                                    <p className="text-sm text-gray-500">{transaccion.categoria} • {transaccion.fecha}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`font-bold text-lg ${transaccion.tipo === 'ingreso' ? 'text-green-600' : 'text-red-600'}`}>
+                                                {transaccion.tipo === 'ingreso' ? '+' : '-'}${transaccion.monto.toFixed(2)}
+                                            </div>
+                                            <div className="flex gap-1">
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => abrirEditarTransaccion(transaccion)}
+                                                    className="h-8 w-8 p-0"
+                                                >
+                                                    <Pencil className="h-4 w-4 text-blue-600" />
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => eliminarTransaccion(transaccion.id)}
+                                                    className="h-8 w-8 p-0"
+                                                >
+                                                    <Trash2 className="h-4 w-4 text-red-600" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Dialog para editar transacción */}
+                        <Dialog open={dialogTransaccionAbierto} onOpenChange={setDialogTransaccionAbierto}>
+                            <DialogContent className="max-w-2xl">
+                                <DialogHeader>
+                                    <DialogTitle>Editar Transacción</DialogTitle>
+                                </DialogHeader>
+                                {transaccionEditando && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="editTipo">Tipo</Label>
+                                            <select
+                                                id="editTipo"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                                value={transaccionEditando.tipo}
+                                                onChange={(e) => setTransaccionEditando({ ...transaccionEditando, tipo: e.target.value })}
+                                            >
+                                                <option value="gasto">Gasto</option>
+                                                <option value="ingreso">Ingreso</option>
+                                            </select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="editMonto">Monto</Label>
+                                            <Input
+                                                id="editMonto"
+                                                type="number"
+                                                value={transaccionEditando.monto}
+                                                onChange={(e) => setTransaccionEditando({ ...transaccionEditando, monto: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="editCategoria">Categoría</Label>
+                                            <Input
+                                                id="editCategoria"
+                                                type="text"
+                                                value={transaccionEditando.categoria}
+                                                onChange={(e) => setTransaccionEditando({ ...transaccionEditando, categoria: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="editFecha">Fecha</Label>
+                                            <Input
+                                                id="editFecha"
+                                                type="date"
+                                                value={transaccionEditando.fecha}
+                                                onChange={(e) => setTransaccionEditando({ ...transaccionEditando, fecha: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2 md:col-span-2">
+                                            <Label htmlFor="editDescripcion">Descripción</Label>
+                                            <Input
+                                                id="editDescripcion"
+                                                type="text"
+                                                value={transaccionEditando.descripcion}
+                                                onChange={(e) => setTransaccionEditando({ ...transaccionEditando, descripcion: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={() => setDialogTransaccionAbierto(false)}>
+                                        Cancelar
+                                    </Button>
+                                    <Button onClick={guardarTransaccionEditada}>
+                                        Guardar Cambios
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    </TabsContent>
+
+                    {/* Categorías Tab */}
+                    <TabsContent value="categorias" className="space-y-6">
+                        {/* Formulario para agregar categorías */}
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-bold text-gray-900 mb-4">Agregar Categoría</h3>
+                            <div className="flex gap-4 items-end">
+                                <div className="flex-1 space-y-2">
+                                    <Label htmlFor="nombreCategoria">Nombre de la categoría</Label>
+                                    <Input
+                                        id="nombreCategoria"
+                                        type="text"
+                                        placeholder="Ej: Educación"
+                                        value={nuevaCategoria.nombre}
+                                        onChange={(e) => setNuevaCategoria({ ...nuevaCategoria, nombre: e.target.value })}
+                                    />
+                                </div>
+                                <div className="w-48 space-y-2">
+                                    <Label htmlFor="tipoCategoria">Tipo</Label>
+                                    <select
+                                        id="tipoCategoria"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                        value={nuevaCategoria.tipo}
+                                        onChange={(e) => setNuevaCategoria({ ...nuevaCategoria, tipo: e.target.value })}
+                                    >
+                                        <option value="gasto">Gasto</option>
+                                        <option value="ingreso">Ingreso</option>
+                                    </select>
+                                </div>
+                                <Button onClick={agregarCategoria}>
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Agregar
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Lista de categorías */}
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-bold text-gray-900 mb-4">Mis Categorías</h3>
+
+                            {/* Categorías de Ingresos */}
+                            <div className="mb-6">
+                                <h4 className="font-semibold text-green-700 mb-3 flex items-center gap-2">
+                                    <TrendingUp className="h-4 w-4" />
+                                    Ingresos
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {categorias.filter(cat => cat.tipo === 'ingreso').map((categoria) => (
+                                        <div
+                                            key={categoria.id}
+                                            className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg"
+                                        >
+                                            <span className="font-medium text-gray-900">{categoria.nombre}</span>
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => abrirEditarCategoria(categoria)}
+                                                    className="h-8 w-8 p-0"
+                                                >
+                                                    <Pencil className="h-4 w-4 text-blue-600" />
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => eliminarCategoria(categoria.id)}
+                                                    className="h-8 w-8 p-0"
+                                                >
+                                                    <Trash2 className="h-4 w-4 text-red-600" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Categorías de Gastos */}
+                            <div>
+                                <h4 className="font-semibold text-red-700 mb-3 flex items-center gap-2">
+                                    <TrendingDown className="h-4 w-4" />
+                                    Gastos
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {categorias.filter(cat => cat.tipo === 'gasto').map((categoria) => (
+                                        <div
+                                            key={categoria.id}
+                                            className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg"
+                                        >
+                                            <span className="font-medium text-gray-900">{categoria.nombre}</span>
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => abrirEditarCategoria(categoria)}
+                                                    className="h-8 w-8 p-0"
+                                                >
+                                                    <Pencil className="h-4 w-4 text-blue-600" />
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => eliminarCategoria(categoria.id)}
+                                                    className="h-8 w-8 p-0"
+                                                >
+                                                    <Trash2 className="h-4 w-4 text-red-600" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Dialog para editar categoría */}
+                        <Dialog open={dialogCategoriaAbierto} onOpenChange={setDialogCategoriaAbierto}>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Editar Categoría</DialogTitle>
+                                </DialogHeader>
+                                {categoriaEditando && (
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="editNombreCategoria">Nombre de la categoría</Label>
+                                            <Input
+                                                id="editNombreCategoria"
+                                                type="text"
+                                                value={categoriaEditando.nombre}
+                                                onChange={(e) => setCategoriaEditando({ ...categoriaEditando, nombre: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="editTipoCategoria">Tipo</Label>
+                                            <select
+                                                id="editTipoCategoria"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                                value={categoriaEditando.tipo}
+                                                onChange={(e) => setCategoriaEditando({ ...categoriaEditando, tipo: e.target.value })}
+                                            >
+                                                <option value="gasto">Gasto</option>
+                                                <option value="ingreso">Ingreso</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                )}
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={() => setDialogCategoriaAbierto(false)}>
+                                        Cancelar
+                                    </Button>
+                                    <Button onClick={guardarCategoriaEditada}>
+                                        Guardar Cambios
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    </TabsContent>
+                </Tabs>
+            </main>
+        </div>
+    );
 }
