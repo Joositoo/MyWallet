@@ -3,7 +3,12 @@
     "baseUrl": ".",
     "jsx": "preserve",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@lib/*": [
+        "./src/lib/*"
+      ]
     }
   }
 }
