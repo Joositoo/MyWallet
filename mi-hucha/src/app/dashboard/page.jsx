@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Button } from '../components/ui/button' //'../components/ui/button';
+import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../components/ui/dialog';
@@ -60,6 +60,7 @@ const COLORES = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d
 
 export default function Dashboard() {
     const navigate = useRouter();
+    const [nuevoNombreEmpty, setNuevoNombreEmpty] = useState(false);
     const [emptyCategory, setEmptyCategory] = useState(false);
     const [emptyEditedCategory, setEmptyEditedCategory] = useState(false);
     const [transacciones, setTransacciones] = useState(transaccionesEjemplo);
@@ -200,12 +201,17 @@ export default function Dashboard() {
 
     //***********************************************************************************************************************************************/
 
-    // Funciones para perfil
+    //***********************************************************************************************************************************************/
+    // FUNCIONES PARA PERFIL
     const actualizarNombre = () => {
-        if (editandoPerfil.nombre.trim()) {
-            setUsuario({ ...usuario, nombre: editandoPerfil.nombre.trim() });
-            setEditandoPerfil({ ...editandoPerfil, nombre: '' });
+        console.log(editandoPerfil.nombre);
+        if (!editandoPerfil.nombre.trim()) {
+            setNuevoNombreEmpty(true);
+            return;
         }
+        console.log(editandoPerfil);
+        //setUsuario({ ...usuario, nombre: editandoPerfil.nombre.trim() });
+        //setEditandoPerfil({ ...editandoPerfil, nombre: '' });
     };
 
     const cambiarPassword = () => {
@@ -263,6 +269,8 @@ export default function Dashboard() {
     const eliminarTransaccion = (id) => {
         setTransacciones(transacciones.filter(t => t.id !== id));
     };
+
+    //***********************************************************************************************************************************************/
 
 
 
@@ -442,8 +450,9 @@ export default function Dashboard() {
                                         value={editandoPerfil.nombre}
                                         onChange={(e) => setEditandoPerfil({ ...editandoPerfil, nombre: e.target.value })}
                                     />
+                                    {nuevoNombreEmpty && <p className='mt-5 text-red-400'>El nombre no puede estar vacío.</p>}
                                 </div>
-                                <Button onClick={actualizarNombre}>
+                                <Button className="hover:cursor-pointer hover:bg-gray-200" onClick={actualizarNombre}>
                                     Actualizar Nombre
                                 </Button>
                             </div>
@@ -488,7 +497,7 @@ export default function Dashboard() {
                                         <p className="text-sm text-red-600">{errorPassword}</p>
                                     </div>
                                 )}
-                                <Button onClick={cambiarPassword} className="w-full md:w-auto">
+                                <Button onClick={cambiarPassword} className="w-full md:w-auto hover:cursor-pointer hover:bg-gray-200">
                                     Cambiar Contraseña
                                 </Button>
                             </div>
