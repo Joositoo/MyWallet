@@ -4,12 +4,12 @@ import { getToken } from 'next-auth/jwt';
 export async function GET(request) {
     try {
         const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-        /*if (!token) {
+        if (!token) {
             return Response.json(
                 { error: 'No autorizado' },
                 { status: 401 }
             );
-        }*/
+        }
 
         const user_id = token.id;
 
@@ -34,14 +34,14 @@ export async function GET(request) {
 export async function POST(request) {
     try {
         const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-        /*if (!token) {
+        if (!token) {
             return Response.json(
                 { error: 'No autorizado' },
                 { status: 401 }
             );
-        }*/
+        }
 
-        const user_id = 1//token.id;
+        const user_id = token.id;
 
         const { nombre, tipo } = await request.json();
 

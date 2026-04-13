@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Button } from '../components/ui/button' //'../components/ui/button';
@@ -60,6 +60,8 @@ const COLORES = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d
 
 export default function Dashboard() {
     const navigate = useRouter();
+    const [emptyCategory, setEmptyCategory] = useState(false);
+    const [emptyEditedCategory, setEmptyEditedCategory] = useState(false);
     const [transacciones, setTransacciones] = useState(transaccionesEjemplo);
     const [nuevaTransaccion, setNuevaTransaccion] = useState({
         tipo: 'gasto',
@@ -68,24 +70,22 @@ export default function Dashboard() {
         descripcion: '',
         fecha: new Date().toISOString().split('T')[0],
     });
+    const [categorias, setCategorias] = useState([]);
 
-    // Estado para categorías
-    const [categorias, setCategorias] = useState([
-        { id: 1, nombre: 'Salario', tipo: 'ingreso' },
-        { id: 2, nombre: 'Freelance', tipo: 'ingreso' },
-        { id: 3, nombre: 'Inversiones', tipo: 'ingreso' },
-        { id: 4, nombre: 'Vivienda', tipo: 'gasto' },
-        { id: 5, nombre: 'Alimentación', tipo: 'gasto' },
-        { id: 6, nombre: 'Transporte', tipo: 'gasto' },
-        { id: 7, nombre: 'Entretenimiento', tipo: 'gasto' },
-        { id: 8, nombre: 'Servicios', tipo: 'gasto' },
-        { id: 9, nombre: 'Salud', tipo: 'gasto' },
-    ]);
+    useEffect(() => {
+        const cargarCategorias = async () => {
+            const res = await fetch('/api/categorias');
+            const data = await res.json();
+            setCategorias([...data.ingresos, ...data.gastos]);
+        };
+        cargarCategorias();
+    }, []);
+
     const [nuevaCategoria, setNuevaCategoria] = useState({
         nombre: '',
-        tipo: 'gasto',
+        tipo: 'ingreso',
     });
-    const [categoriaEditando, setCategoriaEditando] = useState(null);
+    const [categoriaEditando, setCategoriaEditando] = useState([]);
     const [dialogCategoriaAbierto, setDialogCategoriaAbierto] = useState(false);
 
     // Estado para perfil de usuario
@@ -142,16 +142,23 @@ export default function Dashboard() {
         }
     };
 
-    // Funciones para categorías
-    const agregarCategoria = () => {
-        if (nuevaCategoria.nombre.trim()) {
-            const nuevaCat = {
-                id: categorias.length + 1,
-                nombre: nuevaCategoria.nombre.trim(),
-                tipo: nuevaCategoria.tipo,
-            };
-            setCategorias([...categorias, nuevaCat]);
-            setNuevaCategoria({ nombre: '', tipo: 'gasto' });
+    //***********************************************************************************************************************************************/
+    // FUNCIONES PARA CATEGORÍAS
+    const agregarCategoria = async () => {
+        setEmptyCategory(false);
+        if (!nuevaCategoria.nombre.trim()){
+            setEmptyCategory(true);
+            return;
+        }
+        const res = await fetch('/api/categorias', {
+            method: 'POST',
+            headers: { 'Content-type': 'application/json' },
+            body: JSON.stringify(nuevaCategoria)
+        })
+
+        if (res.ok) {
+            const data = await res.json();
+            setCategorias([...categorias, { id: data.id, nombre: data.nombre, tipo: data.tipo }]);
         }
     };
 
@@ -160,19 +167,38 @@ export default function Dashboard() {
         setDialogCategoriaAbierto(true);
     };
 
-    const guardarCategoriaEditada = () => {
-        if (categoriaEditando && categoriaEditando.nombre.trim()) {
-            setCategorias(categorias.map(cat =>
-                cat.id === categoriaEditando.id ? categoriaEditando : cat
-            ));
+    const guardarCategoriaEditada = async (categoria) => {
+        setEmptyEditedCategory(false);
+        if (!categoriaEditando.nombre.trim()){
+            setEmptyEditedCategory(true);
+            return;
+        }
+
+        const res = await fetch('/api/categorias/' +categoria.id, {
+            method: 'PUT',
+            headers: { 'Content-type': 'application/json' },
+            body: JSON.stringify(categoriaEditando)
+        })
+
+        if (res.ok){
+            const data = await res.json();
+            setCategorias(categorias.map(c => c.id === categoria.id ? { ...c, ...categoriaEditando } : c
+));
             setDialogCategoriaAbierto(false);
-            setCategoriaEditando(null);
         }
     };
 
-    const eliminarCategoria = (id) => {
-        setCategorias(categorias.filter(cat => cat.id !== id));
+    const eliminarCategoria = async (id) => {
+        const res = await fetch('/api/categorias/' + id, {
+            method: 'DELETE'
+        });
+
+        if (res.ok) {
+            setCategorias(categorias.filter(c => c.id !== id));
+        }
     };
+
+    //***********************************************************************************************************************************************/
 
     // Funciones para perfil
     const actualizarNombre = () => {
@@ -237,6 +263,8 @@ export default function Dashboard() {
     const eliminarTransaccion = (id) => {
         setTransacciones(transacciones.filter(t => t.id !== id));
     };
+
+
 
     return (
         <div className="min-h-screen w-full bg-gray-100">
@@ -687,15 +715,16 @@ export default function Dashboard() {
                                         value={nuevaCategoria.tipo}
                                         onChange={(e) => setNuevaCategoria({ ...nuevaCategoria, tipo: e.target.value })}
                                     >
-                                        <option value="gasto">Gasto</option>
                                         <option value="ingreso">Ingreso</option>
+                                        <option value="gasto">Gasto</option>
                                     </select>
                                 </div>
-                                <Button onClick={agregarCategoria}>
+                                <Button onClick={agregarCategoria} className="hover:cursor-pointer hover:bg-gray-200">
                                     <Plus className="h-4 w-4 mr-2" />
                                     Agregar
                                 </Button>
                             </div>
+                            {emptyCategory && <p className='mt-5 text-red-400'>Indica el nombre de la categoría.</p>}
                         </div>
 
                         {/* Lista de categorías */}
@@ -709,7 +738,7 @@ export default function Dashboard() {
                                     Ingresos
                                 </h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                    {categorias.filter(cat => cat.tipo === 'ingreso').map((categoria) => (
+                                    {categorias.filter(c => c.tipo === 'ingreso').map((categoria) => (
                                         <div
                                             key={categoria.id}
                                             className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg"
@@ -720,7 +749,7 @@ export default function Dashboard() {
                                                     size="sm"
                                                     variant="ghost"
                                                     onClick={() => abrirEditarCategoria(categoria)}
-                                                    className="h-8 w-8 p-0"
+                                                    className="h-8 w-8 p-0 hover:cursor-pointer"
                                                 >
                                                     <Pencil className="h-4 w-4 text-blue-600" />
                                                 </Button>
@@ -728,7 +757,7 @@ export default function Dashboard() {
                                                     size="sm"
                                                     variant="ghost"
                                                     onClick={() => eliminarCategoria(categoria.id)}
-                                                    className="h-8 w-8 p-0"
+                                                    className="h-8 w-8 p-0 hover:cursor-pointer"
                                                 >
                                                     <Trash2 className="h-4 w-4 text-red-600" />
                                                 </Button>
@@ -745,7 +774,7 @@ export default function Dashboard() {
                                     Gastos
                                 </h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                    {categorias.filter(cat => cat.tipo === 'gasto').map((categoria) => (
+                                    {categorias.filter(c => c.tipo === 'gasto').map((categoria) => (
                                         <div
                                             key={categoria.id}
                                             className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg"
@@ -756,7 +785,7 @@ export default function Dashboard() {
                                                     size="sm"
                                                     variant="ghost"
                                                     onClick={() => abrirEditarCategoria(categoria)}
-                                                    className="h-8 w-8 p-0"
+                                                    className="h-8 w-8 p-0 hover:cursor-pointer"
                                                 >
                                                     <Pencil className="h-4 w-4 text-blue-600" />
                                                 </Button>
@@ -764,7 +793,7 @@ export default function Dashboard() {
                                                     size="sm"
                                                     variant="ghost"
                                                     onClick={() => eliminarCategoria(categoria.id)}
-                                                    className="h-8 w-8 p-0"
+                                                    className="h-8 w-8 p-0 hover:cursor-pointer"
                                                 >
                                                     <Trash2 className="h-4 w-4 text-red-600" />
                                                 </Button>
@@ -804,13 +833,15 @@ export default function Dashboard() {
                                                 <option value="ingreso">Ingreso</option>
                                             </select>
                                         </div>
+                                        {emptyEditedCategory && <p className='mt-5 text-red-400'>Indica el nombre de la categoría.</p>}
                                     </div>
+                                    
                                 )}
                                 <DialogFooter>
-                                    <Button variant="outline" onClick={() => setDialogCategoriaAbierto(false)}>
+                                    <Button className='hover:cursor-pointer hover:bg-gray-200' variant="outline" onClick={() => setDialogCategoriaAbierto(false)}>
                                         Cancelar
                                     </Button>
-                                    <Button onClick={guardarCategoriaEditada}>
+                                    <Button className='hover:cursor-pointer hover:bg-gray-200' onClick={() => guardarCategoriaEditada(categoriaEditando)}>
                                         Guardar Cambios
                                     </Button>
                                 </DialogFooter>

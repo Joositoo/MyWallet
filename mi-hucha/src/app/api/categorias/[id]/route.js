@@ -7,14 +7,14 @@ export async function PUT(request, { params }) {
         const { nombre, tipo } = await request.json();
 
         const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-        /*if (!token) {
+        if (!token) {
             return Response.json(
                 { error: 'No autorizado' },
                 { status: 401 }
             );
-        }*/
+        }
 
-        const user_id = 1//token.id;
+        const user_id = token.id;
 
         if (!nombre || !tipo || (tipo !== 'ingreso' && tipo !== 'gasto')) {
             return Response.json(
@@ -45,14 +45,14 @@ export async function DELETE(request, {params }) {
     try {
         const { id } = await params;
         const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-        /*if (!token) {
+        if (!token) {
             return Response.json(
                 { error: 'No autorizado' },
                 { status: 401 }
             );
-        }*/
+        }
 
-        const user_id = 1//token.id;
+        const user_id = token.id;
         await pool.query('DELETE FROM categorias WHERE id = ? AND usuario_id = ?',
             [id, user_id]
         );
