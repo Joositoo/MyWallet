@@ -24,6 +24,7 @@ import {
     Legend,
     ResponsiveContainer,
 } from 'recharts';
+import { signOut } from 'next-auth/react';
 
 // Datos de ejemplo para las transacciones
 const transaccionesEjemplo = [
@@ -125,9 +126,7 @@ export default function Dashboard() {
     const balance = totalIngresos - totalGastos;
 
     const handleLogout = () => {
-        // Aquí iría la lógica de cerrar sesión
-        
-        navigate('/');
+        signOut({ callbackUrl: '/'});
     };
 
     const agregarTransaccion = () => {
