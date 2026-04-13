@@ -73,13 +73,25 @@ export default function Dashboard() {
     });
     const [categorias, setCategorias] = useState([]);
 
+    // Estado para perfil de usuario
+    const [usuario, setUsuario] = useState({
+        nombre: '',
+    });
+
     useEffect(() => {
         const cargarCategorias = async () => {
             const res = await fetch('/api/categorias');
             const data = await res.json();
             setCategorias([...data.ingresos, ...data.gastos]);
         };
+
+        const cargarPerfil = async () => {
+            const res = await fetch('/api/perfil');
+            const data = await res.json();
+            setUsuario({ nombre: data.perfil.nombre });
+        }
         cargarCategorias();
+        cargarPerfil();
     }, []);
 
     const [nuevaCategoria, setNuevaCategoria] = useState({
@@ -89,11 +101,6 @@ export default function Dashboard() {
     const [categoriaEditando, setCategoriaEditando] = useState([]);
     const [dialogCategoriaAbierto, setDialogCategoriaAbierto] = useState(false);
 
-    // Estado para perfil de usuario
-    const [usuario, setUsuario] = useState({
-        nombre: 'Usuario Demo',
-        password: 'demo123',
-    });
     const [editandoPerfil, setEditandoPerfil] = useState({
         nombre: '',
         passwordActual: '',
@@ -119,6 +126,7 @@ export default function Dashboard() {
 
     const handleLogout = () => {
         // Aquí iría la lógica de cerrar sesión
+        
         navigate('/');
     };
 
@@ -147,7 +155,7 @@ export default function Dashboard() {
     // FUNCIONES PARA CATEGORÍAS
     const agregarCategoria = async () => {
         setEmptyCategory(false);
-        if (!nuevaCategoria.nombre.trim()){
+        if (!nuevaCategoria.nombre.trim()) {
             setEmptyCategory(true);
             return;
         }
@@ -170,21 +178,21 @@ export default function Dashboard() {
 
     const guardarCategoriaEditada = async (categoria) => {
         setEmptyEditedCategory(false);
-        if (!categoriaEditando.nombre.trim()){
+        if (!categoriaEditando.nombre.trim()) {
             setEmptyEditedCategory(true);
             return;
         }
 
-        const res = await fetch('/api/categorias/' +categoria.id, {
+        const res = await fetch('/api/categorias/' + categoria.id, {
             method: 'PUT',
             headers: { 'Content-type': 'application/json' },
             body: JSON.stringify(categoriaEditando)
         })
 
-        if (res.ok){
+        if (res.ok) {
             const data = await res.json();
             setCategorias(categorias.map(c => c.id === categoria.id ? { ...c, ...categoriaEditando } : c
-));
+            ));
             setDialogCategoriaAbierto(false);
         }
     };
@@ -203,18 +211,23 @@ export default function Dashboard() {
 
     //***********************************************************************************************************************************************/
     // FUNCIONES PARA PERFIL
-    const actualizarNombre = () => {
-        console.log(editandoPerfil.nombre);
+    const actualizarNombre = async () => {
+        setNuevoNombreEmpty(false);
         if (!editandoPerfil.nombre.trim()) {
             setNuevoNombreEmpty(true);
             return;
         }
-        console.log(editandoPerfil);
-        //setUsuario({ ...usuario, nombre: editandoPerfil.nombre.trim() });
-        //setEditandoPerfil({ ...editandoPerfil, nombre: '' });
+
+        await fetch('/api/perfil/nombre', {
+            method: 'PUT',
+            headers: { 'Content-type': 'application/json' },
+            body: JSON.stringify({ nombre: editandoPerfil.nombre })
+        });
+        setUsuario({ ...usuario, nombre: editandoPerfil.nombre.trim() });
+        setEditandoPerfil({ ...editandoPerfil, nombre: '' });
     };
 
-    const cambiarPassword = () => {
+    const cambiarPassword = async () => {
         setErrorPassword('');
 
         if (!editandoPerfil.passwordActual || !editandoPerfil.passwordNueva || !editandoPerfil.passwordRepetir) {
@@ -222,18 +235,22 @@ export default function Dashboard() {
             return;
         }
 
-        if (editandoPerfil.passwordActual !== usuario.password) {
-            setErrorPassword('La contraseña actual es incorrecta');
-            return;
-        }
-
         if (editandoPerfil.passwordNueva !== editandoPerfil.passwordRepetir) {
-            setErrorPassword('Las contraseñas nuevas no coinciden');
+            setErrorPassword('Las contraseñas nuevas no coinciden.');
             return;
         }
 
-        if (editandoPerfil.passwordNueva.length < 6) {
-            setErrorPassword('La contraseña debe tener al menos 6 caracteres');
+        const res = await fetch('/api/perfil/password', {
+            method: 'PUT',
+            headers: { 'Content-type': 'application/json' },
+            body: JSON.stringify({
+                passwordActual: editandoPerfil.passwordActual,
+                passwordNueva: editandoPerfil.passwordNueva
+            })
+        });
+
+        if (res.status === 401) {
+            setErrorPassword('La contraseña actual es incorrecta');
             return;
         }
 
@@ -248,7 +265,10 @@ export default function Dashboard() {
         alert('Contraseña cambiada exitosamente');
     };
 
-    // Funciones para transacciones
+    //***********************************************************************************************************************************************/
+
+        //***********************************************************************************************************************************************/
+    // FUNCIONES PARA TRANSACCIONES
     const abrirEditarTransaccion = (transaccion) => {
         setTransaccionEditando({ ...transaccion, monto: transaccion.monto.toString() });
         setDialogTransaccionAbierto(true);
@@ -493,9 +513,9 @@ export default function Dashboard() {
                                     />
                                 </div>
                                 {errorPassword && (
-                                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                                        <p className="text-sm text-red-600">{errorPassword}</p>
-                                    </div>
+
+                                    <p className="mt-5 text-red-400">{errorPassword}</p>
+
                                 )}
                                 <Button onClick={cambiarPassword} className="w-full md:w-auto hover:cursor-pointer hover:bg-gray-200">
                                     Cambiar Contraseña
@@ -844,7 +864,7 @@ export default function Dashboard() {
                                         </div>
                                         {emptyEditedCategory && <p className='mt-5 text-red-400'>Indica el nombre de la categoría.</p>}
                                     </div>
-                                    
+
                                 )}
                                 <DialogFooter>
                                     <Button className='hover:cursor-pointer hover:bg-gray-200' variant="outline" onClick={() => setDialogCategoriaAbierto(false)}>
