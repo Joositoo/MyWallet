@@ -40,13 +40,6 @@ const transaccionesEjemplo = [
     { id: 10, tipo: 'ingreso', monto: 200, categoria: 'Inversiones', fecha: '2026-03-10', descripcion: 'Dividendos' },
 ];
 
-// Datos mensuales para gráficos de tendencia
-const datosMensuales = [
-    { mes: 'Ene', ingresos: 3200, gastos: 2100 },
-    { mes: 'Feb', ingresos: 3500, gastos: 2400 },
-    { mes: 'Mar', ingresos: 3700, gastos: 1510 },
-];
-
 // Datos por categoría para gráfico de pastel
 const gastosPorCategoria = [
     { nombre: 'Vivienda', valor: 800 },
@@ -63,16 +56,21 @@ export default function Dashboard() {
     const navigate = useRouter();
     const [nuevoNombreEmpty, setNuevoNombreEmpty] = useState(false);
     const [emptyCategory, setEmptyCategory] = useState(false);
+    const [emptyTransaction, setEmptyTransaction] = useState(false);
     const [emptyEditedCategory, setEmptyEditedCategory] = useState(false);
+    const [emptyEditTransaction, setEmptyEditTransaction] = useState(false);
     const [transacciones, setTransacciones] = useState(transaccionesEjemplo);
     const [nuevaTransaccion, setNuevaTransaccion] = useState({
-        tipo: 'gasto',
+        tipo: 'ingreso',
         monto: '',
         categoria: '',
         descripcion: '',
         fecha: new Date().toISOString().split('T')[0],
     });
     const [categorias, setCategorias] = useState([]);
+    const [ingresos, setIngresos] = useState([]);
+    const [gastos, setGastos] = useState([]);
+    const [datosMensuales, setDatosMensuales] = useState([]);
 
     // Estado para perfil de usuario
     const [usuario, setUsuario] = useState({
@@ -90,9 +88,20 @@ export default function Dashboard() {
             const res = await fetch('/api/perfil');
             const data = await res.json();
             setUsuario({ nombre: data.perfil.nombre });
-        }
+        };
+
+        const cargarTransacciones = async () => {
+            const res = await fetch('/api/transacciones/');
+            const data = await res.json();
+            console.log(data);
+            setIngresos(data.ingresos.map(t => ({ ...t, tipo: 'Ingreso' })));
+            setGastos(data.gastos.map(t => ({ ...t, tipo: 'Gasto' })));
+            setDatosMensuales(data.datosMensuales);
+        };
+
         cargarCategorias();
         cargarPerfil();
+        cargarTransacciones();
     }, []);
 
     const [nuevaCategoria, setNuevaCategoria] = useState({
@@ -126,28 +135,7 @@ export default function Dashboard() {
     const balance = totalIngresos - totalGastos;
 
     const handleLogout = () => {
-        signOut({ callbackUrl: '/'});
-    };
-
-    const agregarTransaccion = () => {
-        if (nuevaTransaccion.monto && nuevaTransaccion.categoria) {
-            const nuevaT = {
-                id: transacciones.length + 1,
-                tipo: nuevaTransaccion.tipo,
-                monto: parseFloat(nuevaTransaccion.monto),
-                categoria: nuevaTransaccion.categoria,
-                fecha: nuevaTransaccion.fecha,
-                descripcion: nuevaTransaccion.descripcion,
-            };
-            setTransacciones([...transacciones, nuevaT]);
-            setNuevaTransaccion({
-                tipo: 'gasto',
-                monto: '',
-                categoria: '',
-                descripcion: '',
-                fecha: new Date().toISOString().split('T')[0],
-            });
-        }
+        signOut({ callbackUrl: '/' });
     };
 
     //***********************************************************************************************************************************************/
@@ -266,27 +254,110 @@ export default function Dashboard() {
 
     //***********************************************************************************************************************************************/
 
-        //***********************************************************************************************************************************************/
+    //***********************************************************************************************************************************************/
     // FUNCIONES PARA TRANSACCIONES
-    const abrirEditarTransaccion = (transaccion) => {
-        setTransaccionEditando({ ...transaccion, monto: transaccion.monto.toString() });
-        setDialogTransaccionAbierto(true);
-    };
+    const agregarTransaccion = async () => {
+        setEmptyTransaction(false);
 
-    const guardarTransaccionEditada = () => {
-        if (transaccionEditando && transaccionEditando.monto && transaccionEditando.categoria) {
-            setTransacciones(transacciones.map(t =>
-                t.id === transaccionEditando.id
-                    ? { ...transaccionEditando, monto: parseFloat(transaccionEditando.monto) }
-                    : t
-            ));
-            setDialogTransaccionAbierto(false);
-            setTransaccionEditando(null);
+        if (!nuevaTransaccion.monto || !nuevaTransaccion.descripcion || !nuevaTransaccion.fecha) {
+            setEmptyTransaction(true);
+            return;
+        }
+
+        const res = await fetch('/api/transacciones', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                tipo: nuevaTransaccion.tipo,
+                categoria: nuevaTransaccion.categoria,
+                cantidad: nuevaTransaccion.monto,
+                descripcion: nuevaTransaccion.descripcion,
+                fecha: nuevaTransaccion.fecha
+            })
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            const nuevaEntrada = {
+                id: data.id,
+                cantidad: nuevaTransaccion.monto,
+                descripcion: nuevaTransaccion.descripcion,
+                fecha: nuevaTransaccion.fecha,
+                categoria: nuevaTransaccion.categoria
+            };
+
+            if (nuevaTransaccion.tipo === 'ingreso') {
+                setIngresos([...ingresos, nuevaEntrada]);
+            } else {
+                setGastos([...gastos, nuevaEntrada]);
+            }
+
+            setNuevaTransaccion({
+                tipo: 'ingreso',
+                monto: '',
+                categoria: '',
+                descripcion: '',
+                fecha: new Date().toISOString().split('T')[0],
+            });
         }
     };
 
-    const eliminarTransaccion = (id) => {
-        setTransacciones(transacciones.filter(t => t.id !== id));
+    const abrirEditarTransaccion = (transaccion) => {
+        setTransaccionEditando({
+            id: transaccion.id,
+            tipo: transaccion.tipo,
+            monto: transaccion.cantidad,
+            categoria: transaccion.categoria,
+            fecha: new Date(transaccion.fecha).toLocaleDateString('en-CA'),
+            descripcion: transaccion.descripcion
+        });
+        setDialogTransaccionAbierto(true);
+    };
+
+    const guardarTransaccionEditada = async () => {
+        setEmptyEditTransaction(false);
+        if (!transaccionEditando.monto || !transaccionEditando.fecha || !transaccionEditando.descripcion) {
+            setEmptyEditTransaction(true);
+            return;
+        }
+
+        const res = await fetch('/api/transacciones/' + transaccionEditando.id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(transaccionEditando)
+        })
+
+        if (res.ok) {
+            if (transaccionEditando.tipo === 'Ingreso') {
+                setIngresos(ingresos.map(t =>
+                    t.id === transaccionEditando.id
+                        ? { ...t, cantidad: transaccionEditando.monto, fecha: transaccionEditando.fecha, descripcion: transaccionEditando.descripcion }
+                        : t
+                ));
+            } else {
+                setGastos(gastos.map(t =>
+                    t.id === transaccionEditando.id
+                        ? { ...t, cantidad: transaccionEditando.monto, fecha: transaccionEditando.fecha, descripcion: transaccionEditando.descripcion }
+                        : t
+                ));
+            }
+            setDialogTransaccionAbierto(false);
+        }
+    };
+
+    const eliminarTransaccion = async (id, tipo) => {
+        const res = await fetch('/api/transacciones/' + id, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tipo })
+        })
+        if (res.ok) {
+            if (tipo === 'ingreso') {
+                setIngresos(ingresos.filter(t => t.id !== id));
+            } else {
+                setGastos(gastos.filter(t => t.id !== id));
+            }
+        }
     };
 
     //***********************************************************************************************************************************************/
@@ -328,7 +399,7 @@ export default function Dashboard() {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm text-gray-600 mb-1">Total Ingresos</p>
-                                        <p className="text-3xl font-bold text-green-600">${totalIngresos.toFixed(2)}</p>
+                                        <p className="text-3xl font-bold text-green-600"> Hola{/*${totalIngresos.toFixed(2)}*/}</p>
                                     </div>
                                     <div className="bg-green-100 p-3 rounded-full">
                                         <TrendingUp className="h-6 w-6 text-green-600" />
@@ -369,7 +440,7 @@ export default function Dashboard() {
                                 <ResponsiveContainer width="100%" height={300}>
                                     <LineChart data={datosMensuales}>
                                         <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="mes" />
+                                        <XAxis dataKey="mes" tickFormatter={(mes) => new Date(mes + "-01").toLocaleDateString('es-ES', { month: 'long' })} />
                                         <YAxis />
                                         <Tooltip />
                                         <Legend />
@@ -419,21 +490,68 @@ export default function Dashboard() {
                         {/* Transacciones Recientes */}
                         <div className="bg-white rounded-lg shadow p-6">
                             <h3 className="text-lg font-bold text-gray-900 mb-4">Transacciones Recientes</h3>
-                            <div className="space-y-2">
-                                {transacciones.slice(-5).reverse().map((transaccion) => (
-                                    <div
-                                        key={transaccion.id}
-                                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                                    >
-                                        <div className="flex-1">
-                                            <p className="font-medium text-gray-900">{transaccion.descripcion}</p>
-                                            <p className="text-sm text-gray-500">{transaccion.categoria} • {transaccion.fecha}</p>
-                                        </div>
-                                        <div className={`font-bold ${transaccion.tipo === 'ingreso' ? 'text-green-600' : 'text-red-600'}`}>
-                                            {transaccion.tipo === 'ingreso' ? '+' : '-'}${transaccion.monto.toFixed(2)}
-                                        </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {/* Ingresos */}
+                                <div>
+                                    <h4 className="font-semibold text-green-700 mb-3 flex items-center gap-2">
+                                        <TrendingUp className="h-4 w-4" />
+                                        Ingresos ({transacciones.slice(-5).filter(t => t.tipo === 'ingreso').length})
+                                    </h4>
+                                    <div className="space-y-2">
+                                        {transacciones
+                                            .slice(-5)
+                                            .reverse()
+                                            .filter(t => t.tipo === 'ingreso')
+                                            .map((transaccion) => (
+                                                <div
+                                                    key={transaccion.id}
+                                                    className="flex items-center justify-between p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+                                                >
+                                                    <div className="flex-1">
+                                                        <p className="font-medium text-gray-900">{transaccion.descripcion}</p>
+                                                        <p className="text-sm text-gray-500">{transaccion.categoria} • {transaccion.fecha}</p>
+                                                    </div>
+                                                    <div className="font-bold text-green-600">
+                                                        {/*+${transaccion.monto.toFixed(2)}*/} Hola2
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        {transacciones.slice(-5).filter(t => t.tipo === 'ingreso').length === 0 && (
+                                            <p className="text-sm text-gray-500 text-center py-4">No hay ingresos recientes</p>
+                                        )}
                                     </div>
-                                ))}
+                                </div>
+
+                                {/* Gastos */}
+                                <div>
+                                    <h4 className="font-semibold text-red-700 mb-3 flex items-center gap-2">
+                                        <TrendingDown className="h-4 w-4" />
+                                        Gastos ({transacciones.slice(-5).filter(t => t.tipo === 'gasto').length})
+                                    </h4>
+                                    <div className="space-y-2">
+                                        {transacciones
+                                            .slice(-5)
+                                            .reverse()
+                                            .filter(t => t.tipo === 'gasto')
+                                            .map((transaccion) => (
+                                                <div
+                                                    key={transaccion.id}
+                                                    className="flex items-center justify-between p-3 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                                                >
+                                                    <div className="flex-1">
+                                                        <p className="font-medium text-gray-900">{transaccion.descripcion}</p>
+                                                        <p className="text-sm text-gray-500">{transaccion.categoria} • {transaccion.fecha}</p>
+                                                    </div>
+                                                    <div className="font-bold text-red-600">
+                                                        -${transaccion.monto.toFixed(2)}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        {transacciones.slice(-5).filter(t => t.tipo === 'gasto').length === 0 && (
+                                            <p className="text-sm text-gray-500 text-center py-4">No hay gastos recientes</p>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </TabsContent>
@@ -531,7 +649,7 @@ export default function Dashboard() {
                             <ResponsiveContainer width="100%" height={300}>
                                 <BarChart data={datosMensuales}>
                                     <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="mes" />
+                                    <XAxis dataKey="mes" tickFormatter={(mes) => new Date(mes + "-01").toLocaleDateString('es-ES', { month: 'long' })} />
                                     <YAxis />
                                     <Tooltip />
                                     <Legend />
@@ -553,12 +671,12 @@ export default function Dashboard() {
                                         value={nuevaTransaccion.tipo}
                                         onChange={(e) => setNuevaTransaccion({ ...nuevaTransaccion, tipo: e.target.value })}
                                     >
-                                        <option value="gasto">Gasto</option>
                                         <option value="ingreso">Ingreso</option>
+                                        <option value="gasto">Gasto</option>
                                     </select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="monto">Monto</Label>
+                                    <Label htmlFor="monto">Cantidad</Label>
                                     <Input
                                         id="monto"
                                         type="number"
@@ -569,13 +687,21 @@ export default function Dashboard() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="categoria">Categoría</Label>
-                                    <Input
+                                    <select
                                         id="categoria"
-                                        type="text"
-                                        placeholder="Ej: Alimentación"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
                                         value={nuevaTransaccion.categoria}
                                         onChange={(e) => setNuevaTransaccion({ ...nuevaTransaccion, categoria: e.target.value })}
-                                    />
+                                    >
+                                        <option value="">Seleccionar categoría</option>
+                                        {categorias
+                                            .filter(cat => cat.tipo === nuevaTransaccion.tipo)
+                                            .map((categoria) => (
+                                                <option key={categoria.id} value={categoria.nombre}>
+                                                    {categoria.nombre}
+                                                </option>
+                                            ))}
+                                    </select>
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="fecha">Fecha</Label>
@@ -597,7 +723,9 @@ export default function Dashboard() {
                                     />
                                 </div>
                             </div>
-                            <Button onClick={agregarTransaccion} className="w-full md:w-auto">
+
+                            {emptyTransaction && <p className='mt-5 text-red-400'>Ningún campo debe quedar vacío.</p>}
+                            <Button onClick={agregarTransaccion} className="w-full md:w-auto hover:bg-gray-200 hover:cursor-pointer">
                                 <Plus className="h-4 w-4 mr-2" />
                                 Agregar Transacción
                             </Button>
@@ -606,46 +734,102 @@ export default function Dashboard() {
                         {/* Lista de todas las transacciones */}
                         <div className="bg-white rounded-lg shadow p-6">
                             <h3 className="text-lg font-bold text-gray-900 mb-4">Todas las Transacciones</h3>
-                            <div className="space-y-2 max-h-96 overflow-y-auto">
-                                {transacciones.map((transaccion) => (
-                                    <div
-                                        key={transaccion.id}
-                                        className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                                    >
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-2 h-2 rounded-full ${transaccion.tipo === 'ingreso' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                                                <div>
-                                                    <p className="font-medium text-gray-900">{transaccion.descripcion}</p>
-                                                    <p className="text-sm text-gray-500">{transaccion.categoria} • {transaccion.fecha}</p>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {/* Ingresos */}
+                                <div>
+                                    <h4 className="font-semibold text-green-700 mb-3 flex items-center gap-2">
+                                        <TrendingUp className="h-4 w-4" />
+                                        Ingresos ({ingresos.length})
+                                    </h4>
+                                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                                        {ingresos
+                                            .map((ingreso) => (
+                                                <div
+                                                    key={ingreso.id}
+                                                    className="flex items-center justify-between p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+                                                >
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="font-medium text-gray-900 truncate">{ingreso.descripcion}</p>
+                                                        <p className="text-sm text-gray-500 truncate">{ingreso.categoria} • {new Date(ingreso.fecha).toLocaleDateString('es-ES')}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 ml-2">
+                                                        <div className="font-bold text-green-600 whitespace-nowrap">
+                                                            +{ingreso.cantidad} €
+                                                        </div>
+                                                        <div className="flex gap-1">
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                onClick={() => abrirEditarTransaccion(ingreso)}
+                                                                className="h-7 w-7 p-0 h hover:cursor-pointer"
+                                                            >
+                                                                <Pencil className="h-3.5 w-3.5 text-blue-600" />
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                onClick={() => eliminarTransaccion(ingreso.id, 'ingreso')}
+                                                                className="h-7 w-7 p-0 hover:cursor-pointer"
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className={`font-bold text-lg ${transaccion.tipo === 'ingreso' ? 'text-green-600' : 'text-red-600'}`}>
-                                                {transaccion.tipo === 'ingreso' ? '+' : '-'}${transaccion.monto.toFixed(2)}
-                                            </div>
-                                            <div className="flex gap-1">
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    onClick={() => abrirEditarTransaccion(transaccion)}
-                                                    className="h-8 w-8 p-0"
-                                                >
-                                                    <Pencil className="h-4 w-4 text-blue-600" />
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    onClick={() => eliminarTransaccion(transaccion.id)}
-                                                    className="h-8 w-8 p-0"
-                                                >
-                                                    <Trash2 className="h-4 w-4 text-red-600" />
-                                                </Button>
-                                            </div>
-                                        </div>
+                                            ))}
+                                        {ingresos.length === 0 && (
+                                            <p className="text-sm text-gray-500 text-center py-4">No hay ingresos registrados</p>
+                                        )}
                                     </div>
-                                ))}
+                                </div>
+
+                                {/* Gastos */}
+                                <div>
+                                    <h4 className="font-semibold text-red-700 mb-3 flex items-center gap-2">
+                                        <TrendingDown className="h-4 w-4" />
+                                        Gastos ({gastos.length})
+                                    </h4>
+                                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                                        {gastos
+                                            .map((gasto) => (
+                                                <div
+                                                    key={gasto.id}
+                                                    className="flex items-center justify-between p-3 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                                                >
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="font-medium text-gray-900 truncate">{gasto.descripcion}</p>
+                                                        <p className="text-sm text-gray-500 truncate">{gasto.categoria} • {new Date(gasto.fecha).toLocaleDateString('es-ES')}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 ml-2">
+                                                        <div className="font-bold text-red-600 whitespace-nowrap">
+                                                            -{gasto.cantidad} €
+                                                        </div>
+                                                        <div className="flex gap-1">
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                onClick={() => abrirEditarTransaccion(gasto)}
+                                                                className="h-7 w-7 p-0 hover:cursor-pointer"
+                                                            >
+                                                                <Pencil className="h-3.5 w-3.5 text-blue-600" />
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                onClick={() => eliminarTransaccion(gasto.id, 'gasto')}
+                                                                className="h-7 w-7 p-0 hover:cursor-pointer"
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        {transacciones.length === 0 && (
+                                            <p className="text-sm text-gray-500 text-center py-4">No hay gastos registrados</p>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -659,15 +843,13 @@ export default function Dashboard() {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <Label htmlFor="editTipo">Tipo</Label>
-                                            <select
+                                            <Input
                                                 id="editTipo"
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                                type="text"
                                                 value={transaccionEditando.tipo}
+                                                readOnly
                                                 onChange={(e) => setTransaccionEditando({ ...transaccionEditando, tipo: e.target.value })}
-                                            >
-                                                <option value="gasto">Gasto</option>
-                                                <option value="ingreso">Ingreso</option>
-                                            </select>
+                                            />
                                         </div>
                                         <div className="space-y-2">
                                             <Label htmlFor="editMonto">Monto</Label>
@@ -684,6 +866,7 @@ export default function Dashboard() {
                                                 id="editCategoria"
                                                 type="text"
                                                 value={transaccionEditando.categoria}
+                                                readOnly
                                                 onChange={(e) => setTransaccionEditando({ ...transaccionEditando, categoria: e.target.value })}
                                             />
                                         </div>
@@ -705,13 +888,14 @@ export default function Dashboard() {
                                                 onChange={(e) => setTransaccionEditando({ ...transaccionEditando, descripcion: e.target.value })}
                                             />
                                         </div>
+                                        {emptyEditTransaction && <p className='text-red-400 col-span-2'>Ningún campo debe quedar vacío.</p>}
                                     </div>
                                 )}
                                 <DialogFooter>
-                                    <Button variant="outline" onClick={() => setDialogTransaccionAbierto(false)}>
+                                    <Button className="hover:cursor-pointer hover:bg-gray-200" variant="outline" onClick={() => setDialogTransaccionAbierto(false)}>
                                         Cancelar
                                     </Button>
-                                    <Button onClick={guardarTransaccionEditada}>
+                                    <Button className="hover:cursor-pointer hover:bg-gray-200" onClick={guardarTransaccionEditada}>
                                         Guardar Cambios
                                     </Button>
                                 </DialogFooter>

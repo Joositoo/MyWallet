@@ -13,12 +13,40 @@ export async function GET(request) {
 
         const user_id = token.id;
 
-        const [ingresos] = await pool.query('SELECT i.id, i.cantidad, i.descripcion, i.fecha, c.nombre AS categoria FROM ingresos i JOIN categorias c ON i.categoria_id = c.id WHERE i.usuario_id = ?',
+        const [ingresos] = await pool.query('SELECT i.id, i.cantidad, i.descripcion, i.fecha, c.nombre AS categoria FROM ingresos i JOIN categorias c ON i.categoria_id = c.id WHERE i.usuario_id = ? ORDER BY i.fecha DESC',
             [user_id]);
-        const [gastos] = await pool.query('SELECT g.id, g.cantidad, g.descripcion, g.fecha, c.nombre AS categoria FROM gastos g JOIN categorias c ON g.categoria_id = c.id WHERE g.usuario_id = ?',
+        const [gastos] = await pool.query('SELECT g.id, g.cantidad, g.descripcion, g.fecha, c.nombre AS categoria FROM gastos g JOIN categorias c ON g.categoria_id = c.id WHERE g.usuario_id = ? ORDER BY g.fecha DESC',
             [user_id]);
 
-        return Response.json({ ingresos, gastos });
+        const [ingresosPorMes] = await pool.query("SELECT DATE_FORMAT(fecha, '%Y-%m') AS mes, SUM(cantidad) AS ingresos FROM ingresos WHERE usuario_id = ? AND fecha >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH) GROUP BY mes ORDER BY mes; ",
+            [user_id]);
+        const [gastosPorMes] = await pool.query("SELECT DATE_FORMAT(fecha, '%Y-%m') AS mes, SUM(cantidad) AS gastos FROM gastos WHERE usuario_id = ? AND fecha >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH) GROUP BY mes ORDER BY mes; ",
+            [user_id]);
+
+        const datosMensuales = {};
+        ingresosPorMes.forEach(i => {
+            datosMensuales[i.mes] = {
+                mes: i.mes,
+                ingresos: i.ingresos,
+                gastos: 0
+            };
+        });
+
+        gastosPorMes.forEach(g => {
+            if (!datosMensuales[g.mes]){
+                mes[g.mes] = {
+                    mes: g.mes,
+                    ingresos: 0,
+                    gastos: g.gastos
+                }
+            }
+            else {
+                datosMensuales[g.mes].gastos = g.gastos;
+            }
+        })
+        const resultado = Object.values(datosMensuales);
+
+        return Response.json({ ingresos, gastos, datosMensuales: resultado });
     }
     catch (error) {
         console.error(error);
