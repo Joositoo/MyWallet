@@ -4,7 +4,7 @@ import { getToken } from 'next-auth/jwt';
 export async function PUT(request, { params }) {
     try {
         const { id } = await params;
-        const { nombre, tipo } = await request.json();
+        const { monto, fecha, descripcion, tipo } = await request.json();
 
         const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
         if (!token) {
@@ -16,19 +16,25 @@ export async function PUT(request, { params }) {
 
         const user_id = token.id;
 
-        if (!nombre || !tipo || (tipo !== 'ingreso' && tipo !== 'gasto')) {
+        if (!monto || !fecha || !descripcion) {
             return Response.json(
-                { error: 'Faltan campos obligatorios o tipo inválido' },
-                { status: 400 }
+                { error: 'Faltan campos obligatorios' },
+                {status: 400 }
             );
         }
 
-        await pool.query('UPDATE categorias SET nombre = ?, tipo = ? WHERE id = ? AND usuario_id = ?',
-            [nombre, tipo, id, user_id]
-        );
-
+        switch (tipo) {
+            case 'Ingreso':
+                await pool.query('UPDATE ingresos SET cantidad = ?, fecha = ?, descripcion = ? WHERE id = ? AND usuario_id = ?',
+                    [monto, fecha, descripcion, id, user_id]);
+                break;
+            case 'Gasto':
+                await pool.query('UPDATE gastos SET cantidad = ?, fecha = ?, descripcion = ? WHERE id = ? AND usuario_id = ?',
+                    [monto, fecha, descripcion, id, user_id]);
+                break;
+        }
         return Response.json(
-            { mensaje: 'Categoría actualizada' },
+            { mensaje: 'Transacción actualizada' },
             {status: 200 }
         );
     }
@@ -44,6 +50,7 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
     try {
         const { id } = await params;
+        const { tipo } = await request.json();
         const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
         if (!token) {
             return Response.json(
@@ -53,12 +60,20 @@ export async function DELETE(request, { params }) {
         }
 
         const user_id = token.id;
-        await pool.query('DELETE FROM categorias WHERE id = ? AND usuario_id = ?',
-            [id, user_id]
-        );
+
+        switch (tipo) {
+            case 'ingreso':
+                await pool.query('DELETE FROM ingresos WHERE id = ? AND usuario_id= ?',
+                    [id, user_id]);
+                break;
+            case 'gasto':
+                await pool.query('DELETE FROM gastos WHERE id = ? AND usuario_id= ?',
+                    [id, user_id]);
+                break;
+        }
 
         return Response.json(
-            { mensaje: 'Categoría eliminada' },
+            { mensaje: 'Transacción eliminada' },
             { status: 200 }
         );
     }
