@@ -1,6 +1,5 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input';
@@ -26,40 +25,15 @@ import {
 } from 'recharts';
 import { signOut } from 'next-auth/react';
 
-// Datos de ejemplo para las transacciones
-const transaccionesEjemplo = [
-    { id: 1, tipo: 'ingreso', monto: 3000, categoria: 'Salario', fecha: '2026-03-01', descripcion: 'Salario mensual' },
-    { id: 2, tipo: 'gasto', monto: 800, categoria: 'Vivienda', fecha: '2026-03-02', descripcion: 'Renta del mes' },
-    { id: 3, tipo: 'gasto', monto: 150, categoria: 'Alimentación', fecha: '2026-03-03', descripcion: 'Supermercado' },
-    { id: 4, tipo: 'gasto', monto: 200, categoria: 'Transporte', fecha: '2026-03-04', descripcion: 'Gasolina' },
-    { id: 5, tipo: 'ingreso', monto: 500, categoria: 'Freelance', fecha: '2026-03-05', descripcion: 'Proyecto web' },
-    { id: 6, tipo: 'gasto', monto: 100, categoria: 'Entretenimiento', fecha: '2026-03-06', descripcion: 'Cine y cena' },
-    { id: 7, tipo: 'gasto', monto: 80, categoria: 'Servicios', fecha: '2026-03-07', descripcion: 'Internet' },
-    { id: 8, tipo: 'gasto', monto: 120, categoria: 'Alimentación', fecha: '2026-03-08', descripcion: 'Restaurantes' },
-    { id: 9, tipo: 'gasto', monto: 60, categoria: 'Salud', fecha: '2026-03-09', descripcion: 'Farmacia' },
-    { id: 10, tipo: 'ingreso', monto: 200, categoria: 'Inversiones', fecha: '2026-03-10', descripcion: 'Dividendos' },
-];
-
-// Datos por categoría para gráfico de pastel
-const gastosPorCategoria = [
-    { nombre: 'Vivienda', valor: 800 },
-    { nombre: 'Alimentación', valor: 270 },
-    { nombre: 'Transporte', valor: 200 },
-    { nombre: 'Entretenimiento', valor: 100 },
-    { nombre: 'Servicios', valor: 80 },
-    { nombre: 'Salud', valor: 60 },
-];
-
 const COLORES = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d'];
 
 export default function Dashboard() {
-    const navigate = useRouter();
     const [nuevoNombreEmpty, setNuevoNombreEmpty] = useState(false);
     const [emptyCategory, setEmptyCategory] = useState(false);
     const [emptyTransaction, setEmptyTransaction] = useState(false);
     const [emptyEditedCategory, setEmptyEditedCategory] = useState(false);
     const [emptyEditTransaction, setEmptyEditTransaction] = useState(false);
-    const [transacciones, setTransacciones] = useState(transaccionesEjemplo);
+    const [transacciones, setTransacciones] = useState([]);
     const [nuevaTransaccion, setNuevaTransaccion] = useState({
         tipo: 'ingreso',
         monto: '',
@@ -71,6 +45,10 @@ export default function Dashboard() {
     const [ingresos, setIngresos] = useState([]);
     const [gastos, setGastos] = useState([]);
     const [datosMensuales, setDatosMensuales] = useState([]);
+    const [totlIngresos, setTotlIngresos] = useState(0);
+    const [totGastos, setTotGastos] = useState(0);
+    const [gastosPorCategoria ,setGastosPorCategoria] = useState([]);
+
 
     // Estado para perfil de usuario
     const [usuario, setUsuario] = useState({
@@ -93,10 +71,12 @@ export default function Dashboard() {
         const cargarTransacciones = async () => {
             const res = await fetch('/api/transacciones/');
             const data = await res.json();
-            console.log(data);
             setIngresos(data.ingresos.map(t => ({ ...t, tipo: 'Ingreso' })));
             setGastos(data.gastos.map(t => ({ ...t, tipo: 'Gasto' })));
             setDatosMensuales(data.datosMensuales);
+            setTotlIngresos(data.totalIngresos);
+            setTotGastos(data.totalGastos);
+            setGastosPorCategoria(data.gastosPorCategoria);
         };
 
         cargarCategorias();
@@ -117,6 +97,7 @@ export default function Dashboard() {
         passwordNueva: '',
         passwordRepetir: '',
     });
+
     const [errorPassword, setErrorPassword] = useState('');
 
     // Estado para editar transacciones
@@ -124,15 +105,8 @@ export default function Dashboard() {
     const [dialogTransaccionAbierto, setDialogTransaccionAbierto] = useState(false);
 
     // Calcular totales
-    const totalIngresos = transacciones
-        .filter(t => t.tipo === 'ingreso')
-        .reduce((acc, t) => acc + t.monto, 0);
 
-    const totalGastos = transacciones
-        .filter(t => t.tipo === 'gasto')
-        .reduce((acc, t) => acc + t.monto, 0);
-
-    const balance = totalIngresos - totalGastos;
+    const balance = totlIngresos - totGastos;
 
     const handleLogout = () => {
         signOut({ callbackUrl: '/' });
@@ -386,8 +360,8 @@ export default function Dashboard() {
                 <Tabs defaultValue="resumen" className="w-full">
                     <TabsList className="grid w-full grid-cols-4 mb-8 bg-gray-200">
                         <TabsTrigger value="resumen">Resumen</TabsTrigger>
-                        <TabsTrigger value="perfil">Perfil</TabsTrigger>
                         <TabsTrigger value="transacciones">Gastos e Ingresos</TabsTrigger>
+                        <TabsTrigger value="perfil">Perfil</TabsTrigger>
                         <TabsTrigger value="categorias">Categorías</TabsTrigger>
                     </TabsList>
 
@@ -399,7 +373,7 @@ export default function Dashboard() {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm text-gray-600 mb-1">Total Ingresos</p>
-                                        <p className="text-3xl font-bold text-green-600"> Hola{/*${totalIngresos.toFixed(2)}*/}</p>
+                                        <p className="text-3xl font-bold text-green-600">${totlIngresos}</p>
                                     </div>
                                     <div className="bg-green-100 p-3 rounded-full">
                                         <TrendingUp className="h-6 w-6 text-green-600" />
@@ -410,7 +384,7 @@ export default function Dashboard() {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm text-gray-600 mb-1">Total Gastos</p>
-                                        <p className="text-3xl font-bold text-red-600">${totalGastos.toFixed(2)}</p>
+                                        <p className="text-3xl font-bold text-red-600">${totGastos}</p>
                                     </div>
                                     <div className="bg-red-100 p-3 rounded-full">
                                         <TrendingDown className="h-6 w-6 text-red-600" />
@@ -495,28 +469,26 @@ export default function Dashboard() {
                                 <div>
                                     <h4 className="font-semibold text-green-700 mb-3 flex items-center gap-2">
                                         <TrendingUp className="h-4 w-4" />
-                                        Ingresos ({transacciones.slice(-5).filter(t => t.tipo === 'ingreso').length})
+                                        Ingresos ({ingresos.slice(-5).length})
                                     </h4>
                                     <div className="space-y-2">
-                                        {transacciones
+                                        {ingresos
                                             .slice(-5)
-                                            .reverse()
-                                            .filter(t => t.tipo === 'ingreso')
-                                            .map((transaccion) => (
+                                            .map((ingreso) => (
                                                 <div
-                                                    key={transaccion.id}
+                                                    key={ingreso.id}
                                                     className="flex items-center justify-between p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
                                                 >
                                                     <div className="flex-1">
-                                                        <p className="font-medium text-gray-900">{transaccion.descripcion}</p>
-                                                        <p className="text-sm text-gray-500">{transaccion.categoria} • {transaccion.fecha}</p>
+                                                        <p className="font-medium text-gray-900">{ingreso.descripcion}</p>
+                                                        <p className="text-sm text-gray-500">{ingreso.categoria} • {new Date(ingreso.fecha).toLocaleDateString('es-ES')}</p>
                                                     </div>
                                                     <div className="font-bold text-green-600">
-                                                        {/*+${transaccion.monto.toFixed(2)}*/} Hola2
+                                                        +{ingreso.cantidad} €
                                                     </div>
                                                 </div>
                                             ))}
-                                        {transacciones.slice(-5).filter(t => t.tipo === 'ingreso').length === 0 && (
+                                        {ingresos.slice(-5).length === 0 && (
                                             <p className="text-sm text-gray-500 text-center py-4">No hay ingresos recientes</p>
                                         )}
                                     </div>
@@ -526,117 +498,30 @@ export default function Dashboard() {
                                 <div>
                                     <h4 className="font-semibold text-red-700 mb-3 flex items-center gap-2">
                                         <TrendingDown className="h-4 w-4" />
-                                        Gastos ({transacciones.slice(-5).filter(t => t.tipo === 'gasto').length})
+                                        Gastos ({gastos.slice(-5).length})
                                     </h4>
                                     <div className="space-y-2">
-                                        {transacciones
+                                        {gastos
                                             .slice(-5)
-                                            .reverse()
-                                            .filter(t => t.tipo === 'gasto')
-                                            .map((transaccion) => (
+                                            .map((gasto) => (
                                                 <div
-                                                    key={transaccion.id}
+                                                    key={gasto.id}
                                                     className="flex items-center justify-between p-3 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
                                                 >
                                                     <div className="flex-1">
-                                                        <p className="font-medium text-gray-900">{transaccion.descripcion}</p>
-                                                        <p className="text-sm text-gray-500">{transaccion.categoria} • {transaccion.fecha}</p>
+                                                        <p className="font-medium text-gray-900">{gasto.descripcion}</p>
+                                                        <p className="text-sm text-gray-500">{gasto.categoria} • {new Date(gasto.fecha).toLocaleDateString('es-ES')}</p>
                                                     </div>
                                                     <div className="font-bold text-red-600">
-                                                        -${transaccion.monto.toFixed(2)}
+                                                        +{gasto.cantidad} €
                                                     </div>
                                                 </div>
                                             ))}
-                                        {transacciones.slice(-5).filter(t => t.tipo === 'gasto').length === 0 && (
+                                        {gastos.slice(-5).length === 0 && (
                                             <p className="text-sm text-gray-500 text-center py-4">No hay gastos recientes</p>
                                         )}
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    </TabsContent>
-
-                    {/* Perfil Tab */}
-                    <TabsContent value="perfil" className="space-y-6">
-                        {/* Información del Usuario */}
-                        <div className="bg-white rounded-lg shadow p-6">
-                            <h2 className="text-xl font-bold text-gray-900 mb-4">Mi Perfil</h2>
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                                    <div className="bg-blue-100 p-3 rounded-full">
-                                        <span className="text-2xl">👤</span>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-gray-600">Nombre de usuario</p>
-                                        <p className="text-lg font-semibold text-gray-900">{usuario.nombre}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Modificar Nombre */}
-                        <div className="bg-white rounded-lg shadow p-6">
-                            <h3 className="text-lg font-bold text-gray-900 mb-4">Cambiar Nombre</h3>
-                            <div className="flex gap-4 items-end">
-                                <div className="flex-1 space-y-2">
-                                    <Label htmlFor="nuevoNombre">Nuevo nombre</Label>
-                                    <Input
-                                        id="nuevoNombre"
-                                        type="text"
-                                        placeholder="Ingrese su nuevo nombre"
-                                        value={editandoPerfil.nombre}
-                                        onChange={(e) => setEditandoPerfil({ ...editandoPerfil, nombre: e.target.value })}
-                                    />
-                                    {nuevoNombreEmpty && <p className='mt-5 text-red-400'>El nombre no puede estar vacío.</p>}
-                                </div>
-                                <Button className="hover:cursor-pointer hover:bg-gray-200" onClick={actualizarNombre}>
-                                    Actualizar Nombre
-                                </Button>
-                            </div>
-                        </div>
-
-                        {/* Cambiar Contraseña */}
-                        <div className="bg-white rounded-lg shadow p-6">
-                            <h3 className="text-lg font-bold text-gray-900 mb-4">Cambiar Contraseña</h3>
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="passwordActual">Contraseña actual</Label>
-                                    <Input
-                                        id="passwordActual"
-                                        type="password"
-                                        placeholder="Ingrese su contraseña actual"
-                                        value={editandoPerfil.passwordActual}
-                                        onChange={(e) => setEditandoPerfil({ ...editandoPerfil, passwordActual: e.target.value })}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="passwordNueva">Nueva contraseña</Label>
-                                    <Input
-                                        id="passwordNueva"
-                                        type="password"
-                                        placeholder="Ingrese su nueva contraseña"
-                                        value={editandoPerfil.passwordNueva}
-                                        onChange={(e) => setEditandoPerfil({ ...editandoPerfil, passwordNueva: e.target.value })}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="passwordRepetir">Repetir nueva contraseña</Label>
-                                    <Input
-                                        id="passwordRepetir"
-                                        type="password"
-                                        placeholder="Repita su nueva contraseña"
-                                        value={editandoPerfil.passwordRepetir}
-                                        onChange={(e) => setEditandoPerfil({ ...editandoPerfil, passwordRepetir: e.target.value })}
-                                    />
-                                </div>
-                                {errorPassword && (
-
-                                    <p className="mt-5 text-red-400">{errorPassword}</p>
-
-                                )}
-                                <Button onClick={cambiarPassword} className="w-full md:w-auto hover:cursor-pointer hover:bg-gray-200">
-                                    Cambiar Contraseña
-                                </Button>
                             </div>
                         </div>
                     </TabsContent>
@@ -1059,6 +944,91 @@ export default function Dashboard() {
                                 </DialogFooter>
                             </DialogContent>
                         </Dialog>
+                    </TabsContent>
+
+                    {/* Perfil Tab */}
+                    <TabsContent value="perfil" className="space-y-6">
+                        {/* Información del Usuario */}
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h2 className="text-xl font-bold text-gray-900 mb-4">Mi Perfil</h2>
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                                    <div className="bg-blue-100 p-3 rounded-full">
+                                        <span className="text-2xl">👤</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-gray-600">Nombre de usuario</p>
+                                        <p className="text-lg font-semibold text-gray-900">{usuario.nombre}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Modificar Nombre */}
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-bold text-gray-900 mb-4">Cambiar Nombre</h3>
+                            <div className="flex gap-4 items-end">
+                                <div className="flex-1 space-y-2">
+                                    <Label htmlFor="nuevoNombre">Nuevo nombre</Label>
+                                    <Input
+                                        id="nuevoNombre"
+                                        type="text"
+                                        placeholder="Ingrese su nuevo nombre"
+                                        value={editandoPerfil.nombre}
+                                        onChange={(e) => setEditandoPerfil({ ...editandoPerfil, nombre: e.target.value })}
+                                    />
+                                    {nuevoNombreEmpty && <p className='mt-5 text-red-400'>El nombre no puede estar vacío.</p>}
+                                </div>
+                                <Button className="hover:cursor-pointer hover:bg-gray-200" onClick={actualizarNombre}>
+                                    Actualizar Nombre
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Cambiar Contraseña */}
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-bold text-gray-900 mb-4">Cambiar Contraseña</h3>
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="passwordActual">Contraseña actual</Label>
+                                    <Input
+                                        id="passwordActual"
+                                        type="password"
+                                        placeholder="Ingrese su contraseña actual"
+                                        value={editandoPerfil.passwordActual}
+                                        onChange={(e) => setEditandoPerfil({ ...editandoPerfil, passwordActual: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="passwordNueva">Nueva contraseña</Label>
+                                    <Input
+                                        id="passwordNueva"
+                                        type="password"
+                                        placeholder="Ingrese su nueva contraseña"
+                                        value={editandoPerfil.passwordNueva}
+                                        onChange={(e) => setEditandoPerfil({ ...editandoPerfil, passwordNueva: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="passwordRepetir">Repetir nueva contraseña</Label>
+                                    <Input
+                                        id="passwordRepetir"
+                                        type="password"
+                                        placeholder="Repita su nueva contraseña"
+                                        value={editandoPerfil.passwordRepetir}
+                                        onChange={(e) => setEditandoPerfil({ ...editandoPerfil, passwordRepetir: e.target.value })}
+                                    />
+                                </div>
+                                {errorPassword && (
+
+                                    <p className="mt-5 text-red-400">{errorPassword}</p>
+
+                                )}
+                                <Button onClick={cambiarPassword} className="w-full md:w-auto hover:cursor-pointer hover:bg-gray-200">
+                                    Cambiar Contraseña
+                                </Button>
+                            </div>
+                        </div>
                     </TabsContent>
                 </Tabs>
             </main>

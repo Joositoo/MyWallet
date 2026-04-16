@@ -13,10 +13,16 @@ export async function GET(request) {
 
         const user_id = token.id;
 
+        const [totalIngresos] = await pool.query('SELECT SUM(cantidad) AS total FROM ingresos WHERE usuario_id = ?', [user_id]);
+        const [totalGastos] = await pool.query('SELECT SUM(cantidad) AS total FROM gastos WHERE usuario_id = ?', [user_id]);
+
         const [ingresos] = await pool.query('SELECT i.id, i.cantidad, i.descripcion, i.fecha, c.nombre AS categoria FROM ingresos i JOIN categorias c ON i.categoria_id = c.id WHERE i.usuario_id = ? ORDER BY i.fecha DESC',
             [user_id]);
         const [gastos] = await pool.query('SELECT g.id, g.cantidad, g.descripcion, g.fecha, c.nombre AS categoria FROM gastos g JOIN categorias c ON g.categoria_id = c.id WHERE g.usuario_id = ? ORDER BY g.fecha DESC',
             [user_id]);
+
+        const [gastosPorCategoria] = await pool.query('SELECT c.nombre AS nombre, SUM(cantidad) AS valor FROM gastos g INNER JOIN categorias c ON g.categoria_id = c.id WHERE g.usuario_id = ? GROUP BY categoria_id;', [user_id]);
+        const formatGastosPorCategoria = gastosPorCategoria.map(g => ({ ...g, valor: Number(g.valor)}));
 
         const [ingresosPorMes] = await pool.query("SELECT DATE_FORMAT(fecha, '%Y-%m') AS mes, SUM(cantidad) AS ingresos FROM ingresos WHERE usuario_id = ? AND fecha >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH) GROUP BY mes ORDER BY mes; ",
             [user_id]);
@@ -46,7 +52,14 @@ export async function GET(request) {
         })
         const resultado = Object.values(datosMensuales);
 
-        return Response.json({ ingresos, gastos, datosMensuales: resultado });
+        return Response.json({
+            ingresos, 
+            gastos,
+            gastosPorCategoria: formatGastosPorCategoria,
+            datosMensuales: resultado, 
+            totalIngresos: totalIngresos[0].total,
+            totalGastos: totalGastos[0].total 
+        });
     }
     catch (error) {
         console.error(error);
