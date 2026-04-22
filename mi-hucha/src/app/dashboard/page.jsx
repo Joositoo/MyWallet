@@ -33,6 +33,7 @@ export default function Dashboard() {
     const [emptyTransaction, setEmptyTransaction] = useState(false);
     const [emptyEditedCategory, setEmptyEditedCategory] = useState(false);
     const [emptyEditTransaction, setEmptyEditTransaction] = useState(false);
+    const [deleteCategoryError, setDeleteCategoryError] = useState(false);
     const [transacciones, setTransacciones] = useState([]);
     const [nuevaTransaccion, setNuevaTransaccion] = useState({
         tipo: 'ingreso',
@@ -47,8 +48,19 @@ export default function Dashboard() {
     const [datosMensuales, setDatosMensuales] = useState([]);
     const [totlIngresos, setTotlIngresos] = useState(0);
     const [totGastos, setTotGastos] = useState(0);
-    const [gastosPorCategoria ,setGastosPorCategoria] = useState([]);
+    const [gastosPorCategoria, setGastosPorCategoria] = useState([]);
 
+
+    const recargarTransacciones = async () => {
+        const res = await fetch('/api/transacciones');
+        const data = await res.json();
+        setIngresos(data.ingresos.map(t => ({ ...t, tipo: 'Ingreso' })));
+        setGastos(data.gastos.map(t => ({ ...t, tipo: 'Gasto' })));
+        setDatosMensuales(data.datosMensuales);
+        setTotlIngresos(data.totalIngresos);
+        setTotGastos(data.totalGastos);
+        setGastosPorCategoria(data.gastosPorCategoria);
+    };
 
     // Estado para perfil de usuario
     const [usuario, setUsuario] = useState({
@@ -159,12 +171,16 @@ export default function Dashboard() {
     };
 
     const eliminarCategoria = async (id) => {
+        setDeleteCategoryError(false);
         const res = await fetch('/api/categorias/' + id, {
             method: 'DELETE'
         });
 
         if (res.ok) {
             setCategorias(categorias.filter(c => c.id !== id));
+        }
+        else  if (res.status === 500){
+            setDeleteCategoryError(true);
         }
     };
 
@@ -260,6 +276,8 @@ export default function Dashboard() {
                 categoria: nuevaTransaccion.categoria
             };
 
+            await recargarTransacciones();
+
             if (nuevaTransaccion.tipo === 'ingreso') {
                 setIngresos([...ingresos, nuevaEntrada]);
             } else {
@@ -315,6 +333,9 @@ export default function Dashboard() {
                         : t
                 ));
             }
+
+            await recargarTransacciones();
+
             setDialogTransaccionAbierto(false);
         }
     };
@@ -331,6 +352,8 @@ export default function Dashboard() {
             } else {
                 setGastos(gastos.filter(t => t.id !== id));
             }
+
+            await recargarTransacciones();
         }
     };
 
@@ -898,6 +921,7 @@ export default function Dashboard() {
                                         </div>
                                     ))}
                                 </div>
+                                {deleteCategoryError && <p className='mt-5 text-red-400'>No se puede eliminar la categoría, hay transacciones con esta categoría activa.</p>}
                             </div>
                         </div>
 
