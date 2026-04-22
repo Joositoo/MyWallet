@@ -4,22 +4,7 @@ My Wallet es una aplicación web de gestión de finanzas personales construida c
 
 ---
 
-## 📋 Tabla de Contenidos
-
-- [Caracteristicas](#caracteristicas)
-- [Tecnologias](#tecnologias)
-- [Estructura del Proyecto](#estructura-del-proyecto)
-- [Base de Datos](#base-de-datos)
-- [Instalacion](#instalacion)
-- [Variables de Entorno](#variables-de-entorno)
-- [Rutas de la API](#rutas-de-la-api)
-- [Paginas](#paginas)
-- [Autenticacion](#autenticacion)
-- [Seguridad](#seguridad)
-
----
-
-## ✨ Caracteristicas
+## ✨ Características
 
 - ✅ Registro e inicio de sesión de usuarios con autenticación segura
 - ✅ Gestión completa de categorías (ingresos y gastos) con CRUD completo
@@ -34,7 +19,7 @@ My Wallet es una aplicación web de gestión de finanzas personales construida c
 
 ---
 
-## 🛠️ Tecnologias
+## 🛠️ Tecnologías
 
 | Tecnología | Uso |
 |---|---|
@@ -142,7 +127,7 @@ La base de datos se llama `mihucha` y tiene 4 tablas:
 
 ---
 
-## 🚀 Instalacion
+## 🚀 Instalación
 
 ### Prerrequisitos
 
@@ -196,7 +181,7 @@ NEXTAUTH_SECRET=una_clave_secreta_larga_y_segura
 
 Todas las rutas (excepto login y signup) requieren sesión activa. El token se verifica automáticamente desde la cookie de NextAuth.
 
-### Autenticacion
+### Autenticación
 
 | Método | Ruta | Descripción |
 |---|---|---|
@@ -204,7 +189,7 @@ Todas las rutas (excepto login y signup) requieren sesión activa. El token se v
 | POST | `/api/usuarios/signup` | Registrar nuevo usuario |
 | GET/POST | `/api/auth/[...nextauth]` | Gestión de sesión NextAuth |
 
-### Categorias
+### Categorías
 
 | Método | Ruta | Descripción |
 |---|---|---|
@@ -232,7 +217,7 @@ Todas las rutas (excepto login y signup) requieren sesión activa. El token se v
 
 ---
 
-## 📄 Paginas
+## 📄 Páginas
 
 | Ruta | Descripción | Protegida |
 |---|---|---|
@@ -242,7 +227,7 @@ Todas las rutas (excepto login y signup) requieren sesión activa. El token se v
 
 ---
 
-## 🔒 Autenticacion
+## 🔒 Autenticación
 
 La autenticación está implementada con **NextAuth.js** usando el proveedor `CredentialsProvider`:
 
@@ -270,7 +255,3 @@ Al registrarse, el flujo es:
 - El `password_hash` nunca se devuelve en ninguna respuesta de la API
 
 ---
-
-## 📝 Licencia
-
-Este proyecto es de uso personal y educativo.
