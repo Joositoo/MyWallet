@@ -39,17 +39,17 @@ export async function GET(request) {
         });
 
         gastosPorMes.forEach(g => {
-            if (!datosMensuales[g.mes]){
-                mes[g.mes] = {
-                    mes: g.mes,
-                    ingresos: 0,
-                    gastos: g.gastos
-                }
+        if (!datosMensuales[g.mes]){
+            datosMensuales[g.mes] = {
+                mes: g.mes,
+                ingresos: 0,
+                gastos: g.gastos
             }
-            else {
-                datosMensuales[g.mes].gastos = g.gastos;
-            }
-        })
+        } else {
+            datosMensuales[g.mes].gastos = g.gastos;
+        }
+    });
+
         const resultado = Object.values(datosMensuales);
 
         return Response.json({
